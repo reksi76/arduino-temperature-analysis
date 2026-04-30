@@ -30,6 +30,7 @@ fig, ax = plt.subplots()
 def update(frame):
     global last_smooth 
 
+    # acquisition
     try:
         line = ser.readline().decode(errors='ignore').strip()
 
@@ -49,27 +50,39 @@ def update(frame):
 
     raw_data.append(value)
 
+    # Filering (EMA)
     if last_smooth is None:
-        smooth = value 
+        ema_smooth = value 
 
     else:
-        smooth = alpha * value + (1-alpha) * last_smooth
+        ema_smooth = alpha * value + (1-alpha) * last_smooth
 
+    last_smooth = ema_smooth
+    ema_data.append(ema_smooth)
+
+    # Filering (MA)
     if len(raw_data) >= window_size:
-        ma = sum(list(raw_data)[-window_size:]) / window_size
-        ma_data.append(ma)
+        ma_smooth = sum(list(raw_data)[-window_size:]) / window_size
+        ma_data.append(ma_smooth)
     else:
+        ma_smooth = value
         ma_data.append(value)
 
+    # Error
+    ema_tracking_error = abs(value - ema_smooth)
+    ma_tracking_error = abs(value - ma_smooth)
 
-    last_smooth = smooth
-    ema_data.append(smooth)
-
-    if abs(value - smooth) > 0.5:
-        print(f'Anomaly detected: {value}')
-
-    for temperature in raw_data:
-        print(f'{temperature} °C')
+    # Standard Deviasion
+    if len(raw_data) > 20:
+        std = np.std(raw_data)
+        print(f'EMA tracking error: {ema_error:.4f}|MA tracking error: {ma_error:.4f}|Noise Level: {std:.4f}')
+    
+        threshold = std * 3
+        if abs(value - ema_smooth) > threshold:
+            print(f'Anomaly detected: {value}')
+    # print(raw_data)
+    # for temperature in raw_data:
+        # print(f'{temperature} °C')
 
     ax.clear()
     ax.plot(raw_data, label='Raw Data')
