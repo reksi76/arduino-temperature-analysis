@@ -75,14 +75,49 @@ def update(frame):
     # Standard Deviasion
     if len(raw_data) > 20:
         std = np.std(raw_data)
-        print(f'EMA tracking error: {ema_tracking_error:.4f}|MA tracking error: {ma_tracking_error:.4f}|Noise Level: {std:.4f}')
+        # print(f'EMA tracking error: {ema_tracking_error:.4f}|MA tracking error: {ma_tracking_error:.4f}|Noise Level: {std:.4f}')
     
-        threshold = std * 3
+        threshold_delta = std * 3
         if abs(value - ema_smooth) > threshold:
             print(f'Anomaly detected: {value}')
     # print(raw_data)
     # for temperature in raw_data:
         # print(f'{temperature} °C')
+
+    prev_value = 0 
+    rising = False
+    start_index = None
+    # Rise Time Function
+    def rise_time(y):
+        y = np.array(y)
+        y0, y1 = y.min(), y.max()
+        lo = y0 + 0.1 * (y1 - y0)
+        hi = y0 + 0.9 * (y1 - y0)
+    
+        i_lo = np.argmax(y >= lo)
+        i_hi = np.argmax(y >= hi)
+
+        return i_hi - i_lo
+    
+    # beginning of the transition
+    delta = value - prev_value if prev_value is not None else 0
+    if not rising and abs(delta) > threshold_delta:
+        rising = True
+        start_index = len(raw_data) - 1 
+
+    
+    # transition ends
+    if rising and delta < threshold_delta/2:
+        end_index = len(raw_data) - 1 
+        segment = list(raw_data)[start_index:end_index]
+
+        if len(segment) > 5:
+            rt = rise_time(segment)
+            print(f'Rise time: {rt}')
+
+        rising = False
+
+    prev_value = value
 
     ax.clear()
     ax.plot(raw_data, label='Raw Data')
@@ -96,20 +131,6 @@ def update(frame):
 ani = FuncAnimation(fig, update, interval=200)
 plt.show()
 
-# Rise Time Function
-def rise_time(y):
-    y = np.array(y)
-    y0, y1 = y.min(), y.max()
-    lo = y0 + 0.1 * (y1 - y0)
-    hi = y0 + 0.9 * (y1 - y0)
-    
-    i_lo = np.argmax(y >= lo)
-    i_hi = np.argmax(y >= hi)
-
-    return i_hi - i_ho
-
-rt_ema = rise_time(ema_data)
-rt_ma = rise_time(ma_data)
 
 with open('data.txt', 'a') as file:
     for d in raw_data:
